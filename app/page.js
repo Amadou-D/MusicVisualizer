@@ -10,10 +10,12 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 export default function Home() {
   const mountRef = useRef(null);
   const audioRef = useRef(null);
-  const youtubeRef = useRef(null);
+  const youtubeInputRef = useRef(null);
+  const youtubeIframeRef = useRef(null);
   const [audioSource, setAudioSource] = useState(null);
   const [sound, setSound] = useState(null);
   const listener = new THREE.AudioListener();
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
   useEffect(() => {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -252,7 +254,6 @@ export default function Home() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const arrayBuffer = e.target.result;
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
           audioContext.decodeAudioData(arrayBuffer, (buffer) => {
             sound.setBuffer(buffer);
             setAudioSource('mp3');
@@ -268,18 +269,51 @@ export default function Home() {
       if (url) {
         const videoId = url.split('v=')[1];
         const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-        youtubeRef.current.src = embedUrl;
+        youtubeIframeRef.current.src = embedUrl;
         setAudioSource('youtube');
       }
     };
 
     audioRef.current.addEventListener('change', handleMP3Input);
-    youtubeRef.current.addEventListener('change', handleYouTubeInput);
+    youtubeInputRef.current.addEventListener('change', handleYouTubeInput);
+
+    // Initialize YouTube IFrame API
+    const onYouTubeIframeAPIReady = () => {
+      const player = new YT.Player(youtubeIframeRef.current, {
+        events: {
+          onReady: (event) => {
+            const iframe = event.target.getIframe();
+            const mediaElement = iframe.contentWindow.document.querySelector('video');
+            const source = audioContext.createMediaElementSource(mediaElement);
+            source.connect(audioContext.destination);
+            setSound(source);
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) {
+              const iframe = event.target.getIframe();
+              const mediaElement = iframe.contentWindow.document.querySelector('video');
+              const source = audioContext.createMediaElementSource(mediaElement);
+              source.connect(audioContext.destination);
+              setSound(source);
+            }
+          },
+        },
+      });
+    };
+
+    // Load YouTube IFrame API script
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
     return () => {
       audioRef.current.removeEventListener('change', handleMP3Input);
-      youtubeRef.current.removeEventListener('change', handleYouTubeInput);
+      youtubeInputRef.current.removeEventListener('change', handleYouTubeInput);
       mountRef.current.removeChild(renderer.domElement);
+      window.onYouTubeIframeAPIReady = null;
     };
   }, []);
 
@@ -287,7 +321,7 @@ export default function Home() {
     if (audioSource === 'mp3') {
       sound.play();
     } else if (audioSource === 'youtube') {
-      youtubeRef.current.contentWindow.postMessage(
+      youtubeIframeRef.current.contentWindow.postMessage(
         '{"event":"command","func":"playVideo","args":""}',
         '*'
       );
@@ -297,9 +331,9 @@ export default function Home() {
   return (
     <div>
       <input type="file" ref={audioRef} accept="audio/mp3" />
-      <input type="text" ref={youtubeRef} placeholder="YouTube URL" />
+      <input type="text" ref={youtubeInputRef} placeholder="YouTube URL" />
       <iframe
-        ref={youtubeRef}
+        ref={youtubeIframeRef}
         width="560"
         height="315"
         frameBorder="0"
