@@ -1,8 +1,8 @@
 const express = require('express');
-const { exec } = require('child_process');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const ytdl = require('ytdl-core');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -20,21 +20,15 @@ app.get('/audio', async (req, res) => {
     return res.status(400).send('Missing video URL');
   }
 
-  const outputPath = path.resolve(__dirname, 'audio.mp3');
-
   try {
     console.log(`Fetching audio info for URL: ${videoUrl}`);
-    const command = `yt-dlp -f bestaudio -o "${outputPath}" "${videoUrl}"`;
+    const outputPath = path.resolve(__dirname, 'audio.mp3');
+    const audioStream = ytdl(videoUrl, { filter: 'audioonly' });
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error fetching audio: ${error.message}`);
-        return res.status(500).send('Error fetching audio');
-      }
+    const writeStream = fs.createWriteStream(outputPath);
+    audioStream.pipe(writeStream);
 
-      console.log(`stdout: ${stdout}`);
-      console.error(`stderr: ${stderr}`);
-
+    writeStream.on('finish', () => {
       res.setHeader('Content-Type', 'audio/mp3');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -46,6 +40,11 @@ app.get('/audio', async (req, res) => {
       readStream.on('close', () => {
         fs.unlinkSync(outputPath); // Clean up the downloaded file
       });
+    });
+
+    writeStream.on('error', (error) => {
+      console.error('Error writing audio file:', error);
+      res.status(500).send('Error fetching audio');
     });
   } catch (error) {
     console.error('Error fetching audio:', error.stack);
