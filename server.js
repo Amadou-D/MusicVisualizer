@@ -1,17 +1,13 @@
 const express = require('express');
+const { exec } = require('child_process');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const ytdl = require('ytdl-core');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = 3002;
 
-app.use(cors({
-  origin: '*', // Allow all origins
-  methods: ['GET', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
+app.use(cors());
 
 app.get('/audio', async (req, res) => {
   const videoUrl = req.query.url;
@@ -24,20 +20,17 @@ app.get('/audio', async (req, res) => {
 
   try {
     console.log(`Fetching audio info for URL: ${videoUrl}`);
-    const audioStream = ytdl(videoUrl, { filter: 'audioonly' });
+    const command = `yt-dlp -f bestaudio -o "${outputPath}" "${videoUrl}"`;
 
-    audioStream.on('error', (error) => {
-      console.error('Error fetching audio stream:', error);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      res.status(500).send('Error fetching audio stream');
-    });
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error fetching audio: ${error.message}`);
+        return res.status(500).send('Error fetching audio');
+      }
 
-    const writeStream = fs.createWriteStream(outputPath);
-    audioStream.pipe(writeStream);
+      console.log(`stdout: ${stdout}`);
+      console.error(`stderr: ${stderr}`);
 
-    writeStream.on('finish', () => {
       res.setHeader('Content-Type', 'audio/mp3');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -50,19 +43,8 @@ app.get('/audio', async (req, res) => {
         fs.unlinkSync(outputPath); // Clean up the downloaded file
       });
     });
-
-    writeStream.on('error', (error) => {
-      console.error('Error writing audio file:', error);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      res.status(500).send('Error writing audio file');
-    });
   } catch (error) {
     console.error('Error fetching audio:', error.stack);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.status(500).send('Error fetching audio');
   }
 });
