@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 app.use(cors({
-  origin: 'https://music-visualizeer.vercel.app', 
+  origin: 'https://music-visualizeer.vercel.app', // Replace with your Vercel app URL
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
@@ -44,10 +44,16 @@ app.get('/audio', async (req, res) => {
 
     writeStream.on('error', (error) => {
       console.error('Error writing audio file:', error);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.status(500).send('Error fetching audio');
     });
   } catch (error) {
     console.error('Error fetching audio:', error.stack);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.status(500).send('Error fetching audio');
   }
 });
