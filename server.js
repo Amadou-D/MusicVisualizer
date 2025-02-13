@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 app.use(cors({
-  origin: 'https://music-visualizeer.vercel.app', // Replace with your Vercel app URL
+  origin: 'https://music-visualizeer.vercel.app', 
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
