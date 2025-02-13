@@ -25,6 +25,14 @@ app.get('/audio', async (req, res) => {
     const outputPath = path.resolve(__dirname, 'audio.mp3');
     const audioStream = ytdl(videoUrl, { filter: 'audioonly' });
 
+    audioStream.on('error', (error) => {
+      console.error('Error fetching audio stream:', error);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.status(500).send('Error fetching audio stream');
+    });
+
     const writeStream = fs.createWriteStream(outputPath);
     audioStream.pipe(writeStream);
 
@@ -47,7 +55,7 @@ app.get('/audio', async (req, res) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      res.status(500).send('Error fetching audio');
+      res.status(500).send('Error writing audio file');
     });
   } catch (error) {
     console.error('Error fetching audio:', error.stack);
