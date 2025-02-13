@@ -372,18 +372,18 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center p-4 relative">
       <div id="visualizer-container" className="absolute top-0 left-0 w-full h-full -z-10"></div>
-      <form className="mb-4 flex items-center space-x-2">
+      <form className="mb-4 flex items-center space-x-2 text-gray-700">
         <input
           type="text"
           ref={urlInputRef}
           placeholder="Enter YouTube URL"
-          className="p-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-2 border border-gray-300 rounded-l bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button type="button" onClick={handlePlay} className="p-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-md">
           Visualize
         </button>
       </form>
-      <input type="file" ref={audioRef} accept="audio/*" className="mb-4 bg-white p-2 border border-gray-300 rounded-lg shadow-sm" />
+      <input type="file" ref={audioRef} accept="audio/*" className="mb-4 bg-white p-2 border border-gray-300 text-gray-500 rounded-lg shadow-sm" />
       <input type="range" ref={volumeRef} min="0" max="1" step="0.01" defaultValue="1" onChange={handleVolumeChange} className="w-64 mb-4 bg-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <div ref={mountRef} className="w-full h-full" />
       <audio ref={audioElementRef} style={{ display: 'none' }} />
