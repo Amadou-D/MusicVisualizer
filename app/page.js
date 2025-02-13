@@ -19,12 +19,13 @@ export default function Home() {
   const [analyser, setAnalyser] = useState(null);
   const [screenWidth, setScreenWidth] = useState(0);
   const [screenHeight, setScreenHeight] = useState(0);
-  const listener = new THREE.AudioListener();
+  const listener = useRef(null);
   const audioContext = useRef(null);
   const animationId = useRef(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      listener.current = new THREE.AudioListener();
       setScreenWidth(window.innerWidth);
       setScreenHeight(window.innerHeight);
 
@@ -205,9 +206,9 @@ export default function Home() {
       scene.add(mesh);
       mesh.material.wireframe = true;
 
-      camera.add(listener);
+      camera.add(listener.current);
 
-      const sound = new THREE.Audio(listener);
+      const sound = new THREE.Audio(listener.current);
       setSound(sound);
 
       const analyser = new THREE.AudioAnalyser(sound, 32);
