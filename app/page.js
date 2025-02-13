@@ -17,6 +17,12 @@ export default function Home() {
   const [audioSource, setAudioSource] = useState(null);
   const [sound, setSound] = useState(null);
   const [analyser, setAnalyser] = useState(null);
+  const [screenWidth, setScreenWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 0
+  );
+  const [screenHeight, setScreenHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 0
+  );
   const listener = new THREE.AudioListener();
   const audioContext = useRef(null);
   const animationId = useRef(null);
@@ -26,14 +32,21 @@ export default function Home() {
       return;
     }
 
+    const handleResize = () => {
+      setScreenWidth(window.innerWidth);
+      setScreenHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(screenWidth, screenHeight);
     mountRef.current.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       45,
-      window.innerWidth / window.innerHeight,
+      screenWidth / screenHeight,
       0.1,
       1000
     );
@@ -52,7 +65,7 @@ export default function Home() {
     const renderScene = new RenderPass(scene, camera);
 
     const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight)
+      new THREE.Vector2(screenWidth, screenHeight)
     );
     bloomPass.threshold = params.threshold;
     bloomPass.strength = params.strength;
@@ -231,8 +244,8 @@ export default function Home() {
     let mouseX = 0;
     let mouseY = 0;
     document.addEventListener('mousemove', function (e) {
-      let windowHalfX = window.innerWidth / 2;
-      let windowHalfY = window.innerHeight / 2;
+      let windowHalfX = screenWidth / 2;
+      let windowHalfY = screenHeight / 2;
       mouseX = (e.clientX - windowHalfX) / 100;
       mouseY = (e.clientY - windowHalfY) / 100;
     });
@@ -250,10 +263,10 @@ export default function Home() {
     animate();
 
     window.addEventListener('resize', function () {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.aspect = screenWidth / screenHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      bloomComposer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(screenWidth, screenHeight);
+      bloomComposer.setSize(screenWidth, screenHeight);
     });
 
     // Handle MP3 file input
@@ -311,8 +324,9 @@ export default function Home() {
       if (animationId.current) {
         cancelAnimationFrame(animationId.current);
       }
+      window.removeEventListener('resize', handleResize);
     };
-  }, []);
+  }, [screenWidth, screenHeight]);
 
   const handlePlay = () => {
     if (typeof window === 'undefined') {
