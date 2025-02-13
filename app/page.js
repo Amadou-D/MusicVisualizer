@@ -21,6 +21,7 @@ export default function Home() {
   const [screenHeight, setScreenHeight] = useState(0);
   const listener = useRef(null);
   const audioContext = useRef(null);
+  const mediaElementSource = useRef(null);
   const animationId = useRef(null);
 
   useEffect(() => {
@@ -301,10 +302,12 @@ export default function Home() {
           if (!audioContext.current) {
             audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
           }
-          const source = audioContext.current.createMediaElementSource(audioElementRef.current);
+          if (!mediaElementSource.current) {
+            mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
+          }
           const analyserNode = audioContext.current.createAnalyser();
           analyserNode.fftSize = 32;
-          source.connect(analyserNode);
+          mediaElementSource.current.connect(analyserNode);
           analyserNode.connect(audioContext.current.destination);
           sound.setMediaElementSource(audioElementRef.current);
           setAnalyser(analyserNode);
