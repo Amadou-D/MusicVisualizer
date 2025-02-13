@@ -292,7 +292,7 @@ export default function Home() {
       const handleURLInput = (event) => {
         const url = event.target.value;
         if (url) {
-          const proxyUrl = `https://musicvisualizeer.onrender.com/audio?url=${encodeURIComponent(url)}`;
+          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}`;
           audioElementRef.current.src = proxyUrl;
           audioElementRef.current.crossOrigin = "anonymous"; // Set crossOrigin attribute
           audioElementRef.current.load();
