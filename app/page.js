@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GUI } from 'dat.gui';
@@ -10,12 +11,13 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass';
 export default function Home() {
   const mountRef = useRef(null);
   const audioRef = useRef(null);
-  const youtubeInputRef = useRef(null);
-  const youtubeIframeRef = useRef(null);
+  const urlInputRef = useRef(null);
+  const audioElementRef = useRef(null);
   const [audioSource, setAudioSource] = useState(null);
   const [sound, setSound] = useState(null);
+  const [analyser, setAnalyser] = useState(null);
   const listener = new THREE.AudioListener();
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const audioContext = useRef(null);
 
   useEffect(() => {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -194,6 +196,7 @@ export default function Home() {
     setSound(sound);
 
     const analyser = new THREE.AudioAnalyser(sound, 32);
+    setAnalyser(analyser);
 
     const gui = new GUI();
 
@@ -254,7 +257,10 @@ export default function Home() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const arrayBuffer = e.target.result;
-          audioContext.decodeAudioData(arrayBuffer, (buffer) => {
+          if (!audioContext.current) {
+            audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          audioContext.current.decodeAudioData(arrayBuffer, (buffer) => {
             sound.setBuffer(buffer);
             setAudioSource('mp3');
           });
@@ -263,85 +269,69 @@ export default function Home() {
       }
     };
 
-    // Handle YouTube video input
-    const handleYouTubeInput = (event) => {
+    // Handle YouTube URL input
+    const handleURLInput = (event) => {
       const url = event.target.value;
       if (url) {
-        const videoId = url.split('v=')[1];
-        const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
-        youtubeIframeRef.current.src = embedUrl;
+        const proxyUrl = `http://localhost:3002/audio?url=${encodeURIComponent(url)}`;
+        audioElementRef.current.src = proxyUrl;
+        audioElementRef.current.crossOrigin = "anonymous"; // Set crossOrigin attribute
+        audioElementRef.current.load();
+        audioElementRef.current.play();
         setAudioSource('youtube');
+        if (!audioContext.current) {
+          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const source = audioContext.current.createMediaElementSource(audioElementRef.current);
+        const analyserNode = audioContext.current.createAnalyser();
+        analyserNode.fftSize = 32;
+        source.connect(analyserNode);
+        analyserNode.connect(audioContext.current.destination);
+        sound.setMediaElementSource(audioElementRef.current);
+        setAnalyser(analyserNode);
+        console.log('Audio connected to AnalyserNode');
       }
     };
 
     audioRef.current.addEventListener('change', handleMP3Input);
-    youtubeInputRef.current.addEventListener('change', handleYouTubeInput);
-
-    // Initialize YouTube IFrame API
-    const onYouTubeIframeAPIReady = () => {
-      const player = new YT.Player(youtubeIframeRef.current, {
-        events: {
-          onReady: (event) => {
-            const iframe = event.target.getIframe();
-            const mediaElement = iframe.contentWindow.document.querySelector('video');
-            const source = audioContext.createMediaElementSource(mediaElement);
-            source.connect(audioContext.destination);
-            setSound(source);
-          },
-          onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PLAYING) {
-              const iframe = event.target.getIframe();
-              const mediaElement = iframe.contentWindow.document.querySelector('video');
-              const source = audioContext.createMediaElementSource(mediaElement);
-              source.connect(audioContext.destination);
-              setSound(source);
-            }
-          },
-        },
-      });
-    };
-
-    // Load YouTube IFrame API script
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    urlInputRef.current.addEventListener('change', handleURLInput);
 
     return () => {
       audioRef.current.removeEventListener('change', handleMP3Input);
-      youtubeInputRef.current.removeEventListener('change', handleYouTubeInput);
+      urlInputRef.current.removeEventListener('change', handleURLInput);
       mountRef.current.removeChild(renderer.domElement);
-      window.onYouTubeIframeAPIReady = null;
     };
   }, []);
 
   const handlePlay = () => {
-    if (audioSource === 'mp3') {
-      sound.play();
-    } else if (audioSource === 'youtube') {
-      youtubeIframeRef.current.contentWindow.postMessage(
-        '{"event":"command","func":"playVideo","args":""}',
-        '*'
-      );
+    if (!audioContext.current) {
+      audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    if (audioContext.current.state === 'suspended') {
+      audioContext.current.resume().then(() => {
+        if (audioSource === 'mp3') {
+          sound.play();
+        } else if (audioSource === 'youtube') {
+          audioElementRef.current.play();
+        }
+      });
+    } else {
+      if (audioSource === 'mp3') {
+        sound.play();
+      } else if (audioSource === 'youtube') {
+        audioElementRef.current.play();
+      }
     }
   };
 
   return (
     <div>
       <input type="file" ref={audioRef} accept="audio/mp3" />
-      <input type="text" ref={youtubeInputRef} placeholder="YouTube URL" />
-      <iframe
-        ref={youtubeIframeRef}
-        width="560"
-        height="315"
-        frameBorder="0"
-        allow="autoplay; encrypted-media"
-        allowFullScreen
-      ></iframe>
+      <input type="text" ref={urlInputRef} placeholder="YouTube URL" />
       <button onClick={handlePlay}>Play</button>
       <div ref={mountRef} />
+      <audio ref={audioElementRef} style={{ display: 'none' }} />
     </div>
   );
 }
