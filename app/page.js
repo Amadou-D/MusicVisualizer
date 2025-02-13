@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GUI } from 'dat.gui';
+import dynamic from 'next/dynamic';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
@@ -213,28 +213,31 @@ export default function Home() {
       const analyser = new THREE.AudioAnalyser(sound, 32);
       setAnalyser(analyser);
 
-      const gui = new GUI();
+      import('dat.gui').then((mod) => {
+        const GUI = mod.GUI;
+        const gui = new GUI();
 
-      const colorsFolder = gui.addFolder('Colors');
-      colorsFolder.add(params, 'red', 0, 1).onChange(function (value) {
-        uniforms.u_red.value = Number(value);
-      });
-      colorsFolder.add(params, 'green', 0, 1).onChange(function (value) {
-        uniforms.u_green.value = Number(value);
-      });
-      colorsFolder.add(params, 'blue', 0, 1).onChange(function (value) {
-        uniforms.u_blue.value = Number(value);
-      });
+        const colorsFolder = gui.addFolder('Colors');
+        colorsFolder.add(params, 'red', 0, 1).onChange(function (value) {
+          uniforms.u_red.value = Number(value);
+        });
+        colorsFolder.add(params, 'green', 0, 1).onChange(function (value) {
+          uniforms.u_green.value = Number(value);
+        });
+        colorsFolder.add(params, 'blue', 0, 1).onChange(function (value) {
+          uniforms.u_blue.value = Number(value);
+        });
 
-      const bloomFolder = gui.addFolder('Bloom');
-      bloomFolder.add(params, 'threshold', 0, 1).onChange(function (value) {
-        bloomPass.threshold = Number(value);
-      });
-      bloomFolder.add(params, 'strength', 0, 3).onChange(function (value) {
-        bloomPass.strength = Number(value);
-      });
-      bloomFolder.add(params, 'radius', 0, 1).onChange(function (value) {
-        bloomPass.radius = Number(value);
+        const bloomFolder = gui.addFolder('Bloom');
+        bloomFolder.add(params, 'threshold', 0, 1).onChange(function (value) {
+          bloomPass.threshold = Number(value);
+        });
+        bloomFolder.add(params, 'strength', 0, 3).onChange(function (value) {
+          bloomPass.strength = Number(value);
+        });
+        bloomFolder.add(params, 'radius', 0, 1).onChange(function (value) {
+          bloomPass.radius = Number(value);
+        });
       });
 
       let mouseX = 0;
