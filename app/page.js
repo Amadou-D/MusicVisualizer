@@ -19,9 +19,10 @@ export default function Home() {
   const [analyser, setAnalyser] = useState(null);
   const listener = new THREE.AudioListener();
   const audioContext = useRef(null);
+  const animationId = useRef(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !mountRef.current) {
       return;
     }
 
@@ -244,7 +245,7 @@ export default function Home() {
       uniforms.u_time.value = clock.getElapsedTime();
       uniforms.u_frequency.value = analyser.getAverageFrequency();
       bloomComposer.render();
-      requestAnimationFrame(animate);
+      animationId.current = requestAnimationFrame(animate);
     }
     animate();
 
@@ -306,6 +307,9 @@ export default function Home() {
       urlInputRef.current.removeEventListener('change', handleURLInput);
       if (mountRef.current) {
         mountRef.current.removeChild(renderer.domElement);
+      }
+      if (animationId.current) {
+        cancelAnimationFrame(animationId.current);
       }
     };
   }, []);
