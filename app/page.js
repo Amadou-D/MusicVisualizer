@@ -19,9 +19,14 @@ export default function Home() {
   const [analyser, setAnalyser] = useState(null);
   const listener = new THREE.AudioListener();
   const audioContext = useRef(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) {
       return;
     }
 
@@ -306,7 +311,7 @@ export default function Home() {
       urlInputRef.current.removeEventListener('change', handleURLInput);
       mountRef.current.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [isClient]);
 
   const handlePlay = () => {
     if (!audioContext.current) {
