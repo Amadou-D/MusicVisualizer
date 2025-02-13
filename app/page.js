@@ -304,11 +304,17 @@ export default function Home() {
     return () => {
       audioRef.current.removeEventListener('change', handleMP3Input);
       urlInputRef.current.removeEventListener('change', handleURLInput);
-      mountRef.current.removeChild(renderer.domElement);
+      if (mountRef.current) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
     };
   }, []);
 
   const handlePlay = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     if (!audioContext.current) {
       audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -331,6 +337,10 @@ export default function Home() {
   };
 
   const handleVolumeChange = (event) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const volume = event.target.value;
     if (audioElementRef.current) {
       audioElementRef.current.volume = volume;
