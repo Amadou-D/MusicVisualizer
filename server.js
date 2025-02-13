@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 app.use(cors({
-  origin: 'https://music-visualizeer.vercel.app', // Replace with your Vercel app URL
+  origin: '*', // Allow all origins
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
@@ -20,9 +20,10 @@ app.get('/audio', async (req, res) => {
     return res.status(400).send('Missing video URL');
   }
 
+  const outputPath = path.resolve(__dirname, 'audio.mp3');
+
   try {
     console.log(`Fetching audio info for URL: ${videoUrl}`);
-    const outputPath = path.resolve(__dirname, 'audio.mp3');
     const audioStream = ytdl(videoUrl, { filter: 'audioonly' });
 
     audioStream.on('error', (error) => {
