@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import dynamic from 'next/dynamic';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
@@ -289,29 +288,48 @@ export default function Home() {
         }
       };
 
-      // Handle YouTube URL input
       const handleURLInput = (event) => {
         const url = event.target.value;
         if (url) {
-          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}`;
-          audioElementRef.current.src = proxyUrl;
-          audioElementRef.current.crossOrigin = "anonymous"; // Set crossOrigin attribute
-          audioElementRef.current.load();
-          audioElementRef.current.play();
-          setAudioSource('youtube');
           if (!audioContext.current) {
             audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
           }
-          if (!mediaElementSource.current) {
-            mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
+      
+          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}`;
+          audioElementRef.current.src = proxyUrl;
+          audioElementRef.current.crossOrigin = "anonymous";
+          audioElementRef.current.load();
+      
+          try {
+            // Disconnect any existing connections
+            if (mediaElementSource.current) {
+              mediaElementSource.current.disconnect();
+            }
+      
+            // Create new MediaElementSource only if needed
+            if (!mediaElementSource.current) {
+              mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
+            }
+      
+            // Set up Web Audio API analyzer
+            const analyserNode = audioContext.current.createAnalyser();
+            analyserNode.fftSize = 32;
+      
+            // Connect media element to analyzer and destination
+            mediaElementSource.current.connect(analyserNode);
+            mediaElementSource.current.connect(audioContext.current.destination);
+      
+            // Update the analyzer used by THREE.js
+            analyser.analyser = analyserNode;
+      
+            // Start playback
+            setAudioSource('youtube');
+            audioElementRef.current.play();
+      
+            console.log('Audio connected to AnalyserNode');
+          } catch (error) {
+            console.error('Error setting up audio:', error);
           }
-          const analyserNode = audioContext.current.createAnalyser();
-          analyserNode.fftSize = 32;
-          mediaElementSource.current.connect(analyserNode);
-          analyserNode.connect(audioContext.current.destination);
-          sound.setMediaElementSource(audioElementRef.current);
-          setAnalyser(analyserNode);
-          console.log('Audio connected to AnalyserNode');
         }
       };
 
