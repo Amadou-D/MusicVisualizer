@@ -374,6 +374,9 @@ export default function Home() {
         audioElementRef.current.play();
       }
     }
+
+    // Show popup message
+    alert("Visualization can take up to 30 seconds. Take this time to customize the look of your Sphere!");
   };
 
   const handleVolumeChange = (event) => {
