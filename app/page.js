@@ -18,6 +18,8 @@ export default function Home() {
   const [analyser, setAnalyser] = useState(null);
   const [screenWidth, setScreenWidth] = useState(0);
   const [screenHeight, setScreenHeight] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [songTitle, setSongTitle] = useState('');
   const listener = useRef(null);
   const audioContext = useRef(null);
   const mediaElementSource = useRef(null);
@@ -282,53 +284,62 @@ export default function Home() {
             audioContext.current.decodeAudioData(arrayBuffer, (buffer) => {
               sound.setBuffer(buffer);
               setAudioSource('mp3');
+              setSongTitle(file.name);
+              setLoading(false);
             });
           };
           reader.readAsArrayBuffer(file);
         }
       };
 
-      const handleURLInput = (event) => {
+      const handleURLInput = async (event) => {
         const url = event.target.value;
         if (url) {
           if (!audioContext.current) {
             audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
           }
-      
+
           const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}`;
           audioElementRef.current.src = proxyUrl;
           audioElementRef.current.crossOrigin = "anonymous";
           audioElementRef.current.load();
-      
+
           try {
+            // Fetch the YouTube video title
+            const response = await fetch(`https://noembed.com/embed?url=${url}`);
+            const data = await response.json();
+            setSongTitle(data.title);
+
             // Disconnect any existing connections
             if (mediaElementSource.current) {
               mediaElementSource.current.disconnect();
             }
-      
+
             // Create new MediaElementSource only if needed
             if (!mediaElementSource.current) {
               mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
             }
-      
+
             // Set up Web Audio API analyzer
             const analyserNode = audioContext.current.createAnalyser();
             analyserNode.fftSize = 32;
-      
+
             // Connect media element to analyzer and destination
             mediaElementSource.current.connect(analyserNode);
             mediaElementSource.current.connect(audioContext.current.destination);
-      
+
             // Update the analyzer used by THREE.js
             analyser.analyser = analyserNode;
-      
+
             // Start playback
             setAudioSource('youtube');
             audioElementRef.current.play();
-      
+            setLoading(false);
+
             console.log('Audio connected to AnalyserNode');
           } catch (error) {
             console.error('Error setting up audio:', error);
+            setLoading(false);
           }
         }
       };
@@ -355,6 +366,8 @@ export default function Home() {
       return;
     }
 
+    setLoading(true);
+
     if (!audioContext.current) {
       audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -366,6 +379,7 @@ export default function Home() {
         } else if (audioSource === 'youtube') {
           audioElementRef.current.play();
         }
+        setLoading(false);
       });
     } else {
       if (audioSource === 'mp3') {
@@ -373,6 +387,7 @@ export default function Home() {
       } else if (audioSource === 'youtube') {
         audioElementRef.current.play();
       }
+      setLoading(false);
     }
 
     // Show popup message
@@ -396,6 +411,8 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center p-4 relative">
       <div id="visualizer-container" className="absolute top-0 left-0 w-full h-full -z-10"></div>
+      {songTitle && <div className="song-title text-3xl mb-6">{songTitle}</div>}
+      {loading && <div className="loading-spinner mb-4">Loading...</div>}
       <form className="mb-4 flex items-center space-x-2 text-gray-700">
         <input
           type="text"
