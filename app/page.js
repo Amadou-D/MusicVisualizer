@@ -275,6 +275,7 @@ export default function Home() {
       const handleMP3Input = (event) => {
         const file = event.target.files[0];
         if (file) {
+          setLoading(true);
           const reader = new FileReader();
           reader.onload = (e) => {
             const arrayBuffer = e.target.result;
@@ -285,6 +286,14 @@ export default function Home() {
               sound.setBuffer(buffer);
               setAudioSource('mp3');
               setSongTitle(file.name);
+              
+              // Only hide loading spinner after audio has started playing
+              sound.onEnded = function() {
+                console.log('Audio playback ended');
+              };
+              
+              // Play the sound and hide loading spinner once it's started
+              sound.play();
               setLoading(false);
             });
           };
@@ -295,6 +304,7 @@ export default function Home() {
       const handleURLInput = async (event) => {
         const url = event.target.value;
         if (url) {
+          setLoading(true);
           if (!audioContext.current) {
             audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
           }
@@ -303,6 +313,27 @@ export default function Home() {
           audioElementRef.current.src = proxyUrl;
           audioElementRef.current.crossOrigin = "anonymous";
           audioElementRef.current.load();
+
+          // Add event listeners to detect when audio is actually playing
+          const onCanPlay = () => {
+            console.log('Audio can play now');
+          };
+
+          const onPlaying = () => {
+            console.log('Audio is playing');
+            setLoading(false); // Only hide loading spinner once audio is playing
+          };
+
+          const onError = (error) => {
+            console.error('Error during audio playback:', error);
+            setLoading(false);
+            alert('There was an error playing the audio. Please try a different URL.');
+          };
+
+          // Add event listeners
+          audioElementRef.current.addEventListener('canplay', onCanPlay);
+          audioElementRef.current.addEventListener('playing', onPlaying);
+          audioElementRef.current.addEventListener('error', onError);
 
           try {
             // Fetch the YouTube video title
@@ -333,13 +364,24 @@ export default function Home() {
 
             // Start playback
             setAudioSource('youtube');
-            audioElementRef.current.play();
-            setLoading(false);
+            audioElementRef.current.play().catch(error => {
+              console.error('Error starting playback:', error);
+              setLoading(false);
+              alert('Could not autoplay audio. Please click the Visualize button to start.');
+            });
 
             console.log('Audio connected to AnalyserNode');
+            
+            // Remove event listeners when they're no longer needed
+            return () => {
+              audioElementRef.current.removeEventListener('canplay', onCanPlay);
+              audioElementRef.current.removeEventListener('playing', onPlaying);
+              audioElementRef.current.removeEventListener('error', onError);
+            };
           } catch (error) {
             console.error('Error setting up audio:', error);
             setLoading(false);
+            alert('There was an error setting up the audio. Please try a different URL.');
           }
         }
       };
@@ -374,24 +416,31 @@ export default function Home() {
 
     if (audioContext.current.state === 'suspended') {
       audioContext.current.resume().then(() => {
-        if (audioSource === 'mp3') {
-          sound.play();
-        } else if (audioSource === 'youtube') {
-          audioElementRef.current.play();
-        }
-        setLoading(false);
+        playAudio();
       });
     } else {
-      if (audioSource === 'mp3') {
-        sound.play();
-      } else if (audioSource === 'youtube') {
-        audioElementRef.current.play();
-      }
-      setLoading(false);
+      playAudio();
     }
 
     // Show popup message
     alert("Visualization can take up to 30 seconds. Take this time to customize the look of your Sphere!");
+  };
+
+  // Helper function to play audio and manage loading state
+  const playAudio = () => {
+    if (audioSource === 'mp3') {
+      sound.play();
+      // MP3 loading is handled in the event listener
+    } else if (audioSource === 'youtube') {
+      // For YouTube URLs, we'll rely on the 'playing' event to hide the spinner
+      audioElementRef.current.play().catch(error => {
+        console.error('Error playing audio:', error);
+        setLoading(false);
+      });
+    } else {
+      // No audio source selected
+      setLoading(false);
+    }
   };
 
   const handleVolumeChange = (event) => {
@@ -411,8 +460,12 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center p-4 relative">
       <div id="visualizer-container" className="absolute top-0 left-0 w-full h-full -z-10"></div>
-      {songTitle && <div className="song-title text-3xl mb-6">{songTitle}</div>}
-      {loading && <div className="loading-spinner mb-4">Loading...</div>}
+      
+      <div className="flex items-center mb-6 gap-4">
+        {songTitle && <div className="song-title text-3xl">{songTitle}</div>}
+        {loading && <div className="loading-spinner"></div>}
+      </div>
+      
       <form className="mb-4 flex items-center space-x-2 text-gray-700">
         <input
           type="text"
@@ -429,5 +482,5 @@ export default function Home() {
       <div ref={mountRef} className="w-full h-full" />
       <audio ref={audioElementRef} style={{ display: 'none' }} />
     </div>
-  );
+  );        
 }
