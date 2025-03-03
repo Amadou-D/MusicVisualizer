@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+Music Visualizer
+A real-time 3D music visualization web application built with Next.js and Three.js that transforms your audio into stunning interactive visuals.
 
-## Getting Started
+Overview
+This application creates an immersive, audio-reactive 3D environment where a wireframe sphere responds dynamically to music frequencies. Users can visualize audio from YouTube URLs or upload their own MP3 files for a personalized experience.
 
-First, run the development server:
+Features
+Interactive 3D Visualization: A wireframe sphere that pulses and morphs to audio frequencies
+Dual Audio Sources: Support for both YouTube URLs and MP3 file uploads
+Real-time Audio Analysis: Using Web Audio API to analyze frequency data
+Customizable Visual Settings: Adjust colors, bloom effects, and visual parameters on the fly
+Mouse-controlled Camera: Move your mouse to explore different angles of the visualization
+Responsive Design: Adapts seamlessly to different screen sizes
+Technology Stack
+Next.js: React framework for the UI
+Three.js: 3D graphics rendering library
+Web Audio API: For audio processing and frequency analysis
+WebGL Shaders: Custom GLSL shaders for audio-reactive effects
+dat.GUI: For intuitive parameter controls
+Tailwind CSS: For styling the interface
+How It Works
+The application uses the Web Audio API to analyze audio frequencies in real-time, feeding this data into custom Three.js shaders that manipulate a 3D wireframe sphere. The visualization employs Perlin noise and displacement mapping to create organic, flowing movements that respond to the music's intensity and frequency patterns.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Post-processing effects like bloom enhance the visual experience, while a responsive camera allows users to explore the visualization from different perspectives.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Usage
+Enter a YouTube URL or upload an MP3 file
+Click "Visualize" to start the audio and visualization
+Adjust the volume using the slider
+Customize colors and visual effects using the GUI panel
+Move your mouse to change the viewing angle
