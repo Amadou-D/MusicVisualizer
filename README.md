@@ -2,7 +2,7 @@
 
 A real-time 3D music visualization web application built with Next.js and Three.js that transforms your audio into stunning interactive visuals.
 
-![Music Visualizer Demo] https://music-visualizeer.vercel.app/
+Music Visualizer Demo - https://music-visualizeer.vercel.app/
 
 ## Introduction
 
