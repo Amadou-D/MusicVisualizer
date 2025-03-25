@@ -402,7 +402,7 @@ export default function Home() {
           
           // Add cache-busting timestamp to prevent cached responses
           const timestamp = new Date().getTime();
-          const proxyUrl = `http://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}&t=${timestamp}`;
+          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}&t=${timestamp}`;
           
           // Set up audio element
           audioElementRef.current.crossOrigin = "anonymous";
