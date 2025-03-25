@@ -25,11 +25,24 @@ export default function Home() {
   const audioContext = useRef(null);
   const mediaElementSource = useRef(null);
   const animationId = useRef(null);
+  const audioSourceConnected = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Detect Firefox
       setIsFirefox(navigator.userAgent.toLowerCase().indexOf('firefox') > -1);
+      
+      // Initialize audio context on first user interaction - helps with Firefox
+      const initAudio = () => {
+        if (!audioContext.current) {
+          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioContext.current.state === 'suspended') {
+            audioContext.current.resume().catch(err => console.log('Audio context resume error:', err));
+          }
+        }
+        document.removeEventListener('click', initAudio);
+      };
+      document.addEventListener('click', initAudio, { once: true });
       
       listener.current = new THREE.AudioListener();
       setScreenWidth(window.innerWidth);
@@ -313,122 +326,104 @@ export default function Home() {
 
       const handleURLInput = async (event) => {
         const url = event.target.value;
-        if (url) {
-          setLoading(true);
-          
+        if (!url) return;
+        
+        setLoading(true);
+        
+        try {
+          // Get video title first (this works across browsers)
           try {
-            // Get video title first (this works across browsers)
-            try {
-              const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
-              const data = await response.json();
-              setSongTitle(data.title || 'YouTube Audio');
-            } catch (titleError) {
-              console.warn('Could not fetch video title:', titleError);
-              setSongTitle('YouTube Audio');
-            }
-            
-            // Initialize audio context
-            if (!audioContext.current) {
-              audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            
-            // Firefox requires explicit AudioContext resume
-            if (audioContext.current.state === 'suspended') {
-              await audioContext.current.resume();
-            }
-            
-            // Define event handlers first, before using them
-            const onCanPlay = () => {
-              console.log('Audio can play now');
-            };
-            
-            const onPlaying = () => {
-              console.log('Audio is playing');
-              setLoading(false);
-            };
-            
-            const onError = (error) => {
-              console.error('Error during audio playback:', error);
-              setLoading(false);
-              
-              if (isFirefox) {
-                alert('Firefox has stricter security policies. Please try uploading an MP3 file directly or use Chrome/Edge for YouTube streaming.');
-              } else {
-                alert('There was an error playing the audio. Please try a different URL or upload an MP3 file.');
-              }
-            };
-            
-            // Now we can safely use these functions in cleanup
-            const cleanupPreviousListeners = () => {
-              if (audioElementRef.current) {
-                audioElementRef.current.removeEventListener('canplay', onCanPlay);
-                audioElementRef.current.removeEventListener('playing', onPlaying);
-                audioElementRef.current.removeEventListener('error', onError);
-              }
-            };
-            
-            // Clean up any existing listeners
-            cleanupPreviousListeners();
-            
-            // Firefox-specific modifications for URL
-            const browserParam = isFirefox ? '&browser=firefox' : '';
-            const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}${browserParam}`;
-            
-            // Configure and load audio
-            audioElementRef.current.crossOrigin = "anonymous";
-            audioElementRef.current.src = proxyUrl;
-            
-            // Add new event listeners
-            audioElementRef.current.addEventListener('canplay', onCanPlay);
-            audioElementRef.current.addEventListener('playing', onPlaying);
-            audioElementRef.current.addEventListener('error', onError);
-            
-            audioElementRef.current.load();
-            
-            // Clean up any previous audio connections
-            if (mediaElementSource.current) {
-              try {
-                mediaElementSource.current.disconnect();
-              } catch (e) {
-                console.log('Nothing to disconnect');
-              }
-            }
-            
-            // Create new MediaElementSource
-            mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
-            
-            // Create and connect analyzer node
-            const analyserNode = audioContext.current.createAnalyser();
-            analyserNode.fftSize = 32;
-            
-            mediaElementSource.current.connect(analyserNode);
-            mediaElementSource.current.connect(audioContext.current.destination);
-            
-            // Update the analyzer used by THREE.js
-            analyser.analyser = analyserNode;
-            
-            // Set audio source
-            setAudioSource('youtube');
-            
-            console.log('Audio connected to AnalyserNode');
-            
-            // In Firefox, don't autoplay - wait for Visualize button
-            if (!isFirefox) {
-              audioElementRef.current.play().catch(error => {
-                console.error('Error starting playback:', error);
-                setLoading(false);
-                alert('Could not autoplay audio. Please click the Visualize button to start.');
-              });
-            } else {
-              // For Firefox, show a message about clicking the Visualize button
-              setLoading(false);
-              console.log('Firefox detected - waiting for Visualize button click');
-            }
-          } catch (error) {
-            console.error('Error setting up audio:', error);
-            setLoading(false);
-            alert('There was an error setting up the audio. Please try a different URL or upload an MP3 file.');
+            const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+            const data = await response.json();
+            setSongTitle(data.title || 'YouTube Audio');
+          } catch (titleError) {
+            console.warn('Could not fetch video title:', titleError);
+            setSongTitle('YouTube Audio');
           }
+          
+          // Initialize audio context if needed
+          if (!audioContext.current) {
+            audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          
+          // Resume AudioContext if suspended
+          if (audioContext.current.state === 'suspended') {
+            await audioContext.current.resume();
+          }
+          
+          // Clean up any previous source connection
+          if (mediaElementSource.current) {
+            try {
+              mediaElementSource.current.disconnect();
+            } catch (e) {
+              console.log('Nothing to disconnect:', e);
+            }
+            mediaElementSource.current = null;
+          }
+          
+          // Reset audio element
+          if (audioElementRef.current) {
+            audioElementRef.current.pause();
+            audioElementRef.current.removeAttribute('src');
+            audioElementRef.current.load();
+          }
+          
+          // Define event handlers
+          const onCanPlay = () => {
+            console.log('Audio can play now');
+          };
+          
+          const onPlaying = () => {
+            console.log('Audio is playing');
+            setLoading(false);
+          };
+          
+          const onError = (error) => {
+            console.error('Error during audio playback:', error);
+            setLoading(false);
+            
+            if (isFirefox) {
+              alert('Firefox has stricter security policies. Try uploading an MP3 file directly instead of using YouTube.');
+            } else {
+              alert('There was an error playing the audio. Please try a different URL or upload an MP3 file.');
+            }
+          };
+          
+          // Clean up previous listeners
+          const cleanupPreviousListeners = () => {
+            if (audioElementRef.current) {
+              audioElementRef.current.removeEventListener('canplay', onCanPlay);
+              audioElementRef.current.removeEventListener('playing', onPlaying);
+              audioElementRef.current.removeEventListener('error', onError);
+            }
+          };
+          
+          cleanupPreviousListeners();
+          
+          // Add cache-busting timestamp to prevent cached responses
+          const timestamp = new Date().getTime();
+          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}&t=${timestamp}`;
+          
+          // Set up audio element
+          audioElementRef.current.crossOrigin = "anonymous";
+          audioElementRef.current.src = proxyUrl;
+          
+          // Add event listeners
+          audioElementRef.current.addEventListener('canplay', onCanPlay);
+          audioElementRef.current.addEventListener('playing', onPlaying);
+          audioElementRef.current.addEventListener('error', onError);
+          
+          audioElementRef.current.load();
+          
+          // We'll delay creating the MediaElementSource until the user clicks Play
+          audioSourceConnected.current = false;
+          setAudioSource('youtube');
+          setLoading(false);
+          
+        } catch (error) {
+          console.error('Error setting up audio:', error);
+          setLoading(false);
+          alert('There was an error setting up the audio. Please try a different URL or upload an MP3 file.');
         }
       };
       
@@ -436,8 +431,18 @@ export default function Home() {
       urlInputRef.current.addEventListener('change', handleURLInput);
 
       return () => {
-        audioRef.current.removeEventListener('change', handleMP3Input);
-        urlInputRef.current.removeEventListener('change', handleURLInput);
+        audioRef.current?.removeEventListener('change', handleMP3Input);
+        urlInputRef.current?.removeEventListener('change', handleURLInput);
+        
+        // Clean up media connections
+        if (mediaElementSource.current) {
+          try {
+            mediaElementSource.current.disconnect();
+          } catch (e) {
+            console.log('Nothing to disconnect on cleanup');
+          }
+        }
+        
         if (mountRef.current && renderer.domElement) {
           try {
             mountRef.current.removeChild(renderer.domElement);
@@ -445,13 +450,16 @@ export default function Home() {
             console.log('Unable to remove renderer');
           }
         }
+        
         if (animationId.current) {
           cancelAnimationFrame(animationId.current);
         }
+        
         window.removeEventListener('resize', handleResize);
+        document.removeEventListener('click', initAudio);
       };
     }
-  }, [isFirefox]);
+  }, []);
 
   const handlePlay = () => {
     if (typeof window === 'undefined') {
@@ -464,24 +472,47 @@ export default function Home() {
       audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // Firefox requires explicit resuming of the audio context
-    if (audioContext.current.state === 'suspended') {
-      audioContext.current.resume().then(() => {
-        playAudio();
-      });
-    } else {
+    // Always resume the audio context first (critical for Firefox)
+    audioContext.current.resume().then(() => {
+      // Special handling for YouTube audio source
+      if (audioSource === 'youtube' && !audioSourceConnected.current) {
+        try {
+          // Create MediaElementSource if not already created
+          if (!mediaElementSource.current) {
+            mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
+          }
+          
+          // Create and connect analyzer node
+          const analyserNode = audioContext.current.createAnalyser();
+          analyserNode.fftSize = 32;
+          
+          mediaElementSource.current.connect(analyserNode);
+          mediaElementSource.current.connect(audioContext.current.destination);
+          
+          // Update the analyzer used by THREE.js
+          analyser.analyser = analyserNode;
+          
+          audioSourceConnected.current = true;
+          console.log('Audio connected to AnalyserNode on play');
+        } catch (error) {
+          console.error('Error connecting audio source:', error);
+          // Continue with playback even if connection fails
+        }
+      }
+      
       playAudio();
-    }
-
-    // Show popup message
-    alert("Visualization can take up to 30 seconds. Take this time to customize the look of your Sphere!");
+    }).catch(error => {
+      console.error('Error resuming audio context:', error);
+      setLoading(false);
+      alert('Could not start audio playback. Please try again.');
+    });
   };
 
   // Helper function to play audio and manage loading state
   const playAudio = () => {
     if (audioSource === 'mp3') {
       sound.play();
-      // MP3 loading is handled in the event listener
+      setLoading(false);
     } else if (audioSource === 'youtube') {
       // For YouTube URLs, we'll rely on the 'playing' event to hide the spinner
       audioElementRef.current.play().catch(error => {
@@ -489,12 +520,15 @@ export default function Home() {
         setLoading(false);
         
         if (isFirefox) {
-          alert('Firefox has issues with YouTube streaming. Please try uploading an MP3 file instead.');
+          alert('Firefox has issues with YouTube streaming due to security policies. Please try uploading an MP3 file instead.');
+        } else {
+          alert('Could not play audio. Please try a different URL or upload an MP3 file.');
         }
       });
     } else {
       // No audio source selected
       setLoading(false);
+      alert('Please enter a YouTube URL or upload an MP3 file first.');
     }
   };
 
@@ -578,6 +612,7 @@ export default function Home() {
         ref={audioElementRef} 
         style={{ display: 'none' }} 
         preload="auto" 
+        playsInline
         crossOrigin="anonymous" 
       />
     </div>
