@@ -20,6 +20,7 @@ export default function Home() {
   const [screenHeight, setScreenHeight] = useState(0);
   const [loading, setLoading] = useState(false);
   const [songTitle, setSongTitle] = useState('');
+  const [isFirefox, setIsFirefox] = useState(false);
   const listener = useRef(null);
   const audioContext = useRef(null);
   const mediaElementSource = useRef(null);
@@ -27,6 +28,9 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Detect Firefox
+      setIsFirefox(navigator.userAgent.toLowerCase().indexOf('firefox') > -1);
+      
       listener.current = new THREE.AudioListener();
       setScreenWidth(window.innerWidth);
       setScreenHeight(window.innerHeight);
@@ -282,6 +286,12 @@ export default function Home() {
             if (!audioContext.current) {
               audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
             }
+            
+            // Resume AudioContext if suspended (needed for Firefox)
+            if (audioContext.current.state === 'suspended') {
+              audioContext.current.resume();
+            }
+            
             audioContext.current.decodeAudioData(arrayBuffer, (buffer) => {
               sound.setBuffer(buffer);
               setAudioSource('mp3');
@@ -305,95 +315,135 @@ export default function Home() {
         const url = event.target.value;
         if (url) {
           setLoading(true);
-          if (!audioContext.current) {
-            audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
-          }
-
-          const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}`;
-          audioElementRef.current.src = proxyUrl;
-          audioElementRef.current.crossOrigin = "anonymous";
-          audioElementRef.current.load();
-
-          // Add event listeners to detect when audio is actually playing
-          const onCanPlay = () => {
-            console.log('Audio can play now');
-          };
-
-          const onPlaying = () => {
-            console.log('Audio is playing');
-            setLoading(false); // Only hide loading spinner once audio is playing
-          };
-
-          const onError = (error) => {
-            console.error('Error during audio playback:', error);
-            setLoading(false);
-            alert('There was an error playing the audio. Please try a different URL.');
-          };
-
-          // Add event listeners
-          audioElementRef.current.addEventListener('canplay', onCanPlay);
-          audioElementRef.current.addEventListener('playing', onPlaying);
-          audioElementRef.current.addEventListener('error', onError);
-
+          
           try {
-            // Fetch the YouTube video title
-            const response = await fetch(`https://noembed.com/embed?url=${url}`);
-            const data = await response.json();
-            setSongTitle(data.title);
-
-            // Disconnect any existing connections
+            // Get video title first (this works across browsers)
+            try {
+              const response = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+              const data = await response.json();
+              setSongTitle(data.title || 'YouTube Audio');
+            } catch (titleError) {
+              console.warn('Could not fetch video title:', titleError);
+              setSongTitle('YouTube Audio');
+            }
+            
+            // Initialize audio context
+            if (!audioContext.current) {
+              audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Firefox requires explicit AudioContext resume
+            if (audioContext.current.state === 'suspended') {
+              await audioContext.current.resume();
+            }
+            
+            // Define event handlers first, before using them
+            const onCanPlay = () => {
+              console.log('Audio can play now');
+            };
+            
+            const onPlaying = () => {
+              console.log('Audio is playing');
+              setLoading(false);
+            };
+            
+            const onError = (error) => {
+              console.error('Error during audio playback:', error);
+              setLoading(false);
+              
+              if (isFirefox) {
+                alert('Firefox has stricter security policies. Please try uploading an MP3 file directly or use Chrome/Edge for YouTube streaming.');
+              } else {
+                alert('There was an error playing the audio. Please try a different URL or upload an MP3 file.');
+              }
+            };
+            
+            // Now we can safely use these functions in cleanup
+            const cleanupPreviousListeners = () => {
+              if (audioElementRef.current) {
+                audioElementRef.current.removeEventListener('canplay', onCanPlay);
+                audioElementRef.current.removeEventListener('playing', onPlaying);
+                audioElementRef.current.removeEventListener('error', onError);
+              }
+            };
+            
+            // Clean up any existing listeners
+            cleanupPreviousListeners();
+            
+            // Firefox-specific modifications for URL
+            const browserParam = isFirefox ? '&browser=firefox' : '';
+            const proxyUrl = `https://musicserver-3uzw.onrender.com/audio?url=${encodeURIComponent(url)}${browserParam}`;
+            
+            // Configure and load audio
+            audioElementRef.current.crossOrigin = "anonymous";
+            audioElementRef.current.src = proxyUrl;
+            
+            // Add new event listeners
+            audioElementRef.current.addEventListener('canplay', onCanPlay);
+            audioElementRef.current.addEventListener('playing', onPlaying);
+            audioElementRef.current.addEventListener('error', onError);
+            
+            audioElementRef.current.load();
+            
+            // Clean up any previous audio connections
             if (mediaElementSource.current) {
-              mediaElementSource.current.disconnect();
+              try {
+                mediaElementSource.current.disconnect();
+              } catch (e) {
+                console.log('Nothing to disconnect');
+              }
             }
-
-            // Create new MediaElementSource only if needed
-            if (!mediaElementSource.current) {
-              mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
-            }
-
-            // Set up Web Audio API analyzer
+            
+            // Create new MediaElementSource
+            mediaElementSource.current = audioContext.current.createMediaElementSource(audioElementRef.current);
+            
+            // Create and connect analyzer node
             const analyserNode = audioContext.current.createAnalyser();
             analyserNode.fftSize = 32;
-
-            // Connect media element to analyzer and destination
+            
             mediaElementSource.current.connect(analyserNode);
             mediaElementSource.current.connect(audioContext.current.destination);
-
+            
             // Update the analyzer used by THREE.js
             analyser.analyser = analyserNode;
-
-            // Start playback
+            
+            // Set audio source
             setAudioSource('youtube');
-            audioElementRef.current.play().catch(error => {
-              console.error('Error starting playback:', error);
-              setLoading(false);
-              alert('Could not autoplay audio. Please click the Visualize button to start.');
-            });
-
+            
             console.log('Audio connected to AnalyserNode');
             
-            // Remove event listeners when they're no longer needed
-            return () => {
-              audioElementRef.current.removeEventListener('canplay', onCanPlay);
-              audioElementRef.current.removeEventListener('playing', onPlaying);
-              audioElementRef.current.removeEventListener('error', onError);
-            };
+            // In Firefox, don't autoplay - wait for Visualize button
+            if (!isFirefox) {
+              audioElementRef.current.play().catch(error => {
+                console.error('Error starting playback:', error);
+                setLoading(false);
+                alert('Could not autoplay audio. Please click the Visualize button to start.');
+              });
+            } else {
+              // For Firefox, show a message about clicking the Visualize button
+              setLoading(false);
+              console.log('Firefox detected - waiting for Visualize button click');
+            }
           } catch (error) {
             console.error('Error setting up audio:', error);
             setLoading(false);
-            alert('There was an error setting up the audio. Please try a different URL.');
+            alert('There was an error setting up the audio. Please try a different URL or upload an MP3 file.');
           }
         }
       };
-
+      
       audioRef.current.addEventListener('change', handleMP3Input);
       urlInputRef.current.addEventListener('change', handleURLInput);
 
       return () => {
         audioRef.current.removeEventListener('change', handleMP3Input);
         urlInputRef.current.removeEventListener('change', handleURLInput);
-        if (mountRef.current) {
-          mountRef.current.removeChild(renderer.domElement);
+        if (mountRef.current && renderer.domElement) {
+          try {
+            mountRef.current.removeChild(renderer.domElement);
+          } catch (e) {
+            console.log('Unable to remove renderer');
+          }
         }
         if (animationId.current) {
           cancelAnimationFrame(animationId.current);
@@ -401,7 +451,7 @@ export default function Home() {
         window.removeEventListener('resize', handleResize);
       };
     }
-  }, []);
+  }, [isFirefox]);
 
   const handlePlay = () => {
     if (typeof window === 'undefined') {
@@ -414,6 +464,7 @@ export default function Home() {
       audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
     }
 
+    // Firefox requires explicit resuming of the audio context
     if (audioContext.current.state === 'suspended') {
       audioContext.current.resume().then(() => {
         playAudio();
@@ -436,6 +487,10 @@ export default function Home() {
       audioElementRef.current.play().catch(error => {
         console.error('Error playing audio:', error);
         setLoading(false);
+        
+        if (isFirefox) {
+          alert('Firefox has issues with YouTube streaming. Please try uploading an MP3 file instead.');
+        }
       });
     } else {
       // No audio source selected
@@ -461,9 +516,21 @@ export default function Home() {
     <div className="flex flex-col items-center p-4 relative">
       <div id="visualizer-container" className="absolute top-0 left-0 w-full h-full -z-10"></div>
       
+      {isFirefox && (
+        <div className="mb-4 w-full max-w-md bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
+          <p className="font-bold">Firefox Compatibility Notice</p>
+          <p>YouTube streaming may not work properly in Firefox due to strict security policies. For best results:</p>
+          <ul className="list-disc pl-5 mt-2">
+            <li>Upload an MP3 file directly instead</li>
+            <li>Always use the Visualize button after entering a URL</li>
+            <li>Try Chrome or Edge for full YouTube support</li>
+          </ul>
+        </div>
+      )}
+      
       <div className="flex items-center mb-6 gap-4">
         {songTitle && <div className="song-title text-3xl">{songTitle}</div>}
-        {loading && <div className="loading-spinner"></div>}
+        {loading && <div className="loading-spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
       </div>
       
       <form className="mb-4 flex items-center space-x-2 text-gray-700">
@@ -473,14 +540,46 @@ export default function Home() {
           placeholder="Enter YouTube URL"
           className="p-2 border border-gray-300 rounded-l bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="button" onClick={handlePlay} className="p-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-md">
+        <button 
+          type="button" 
+          onClick={handlePlay} 
+          className="p-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-md"
+        >
           Visualize
         </button>
       </form>
-      <input type="file" ref={audioRef} accept="audio/*" className="mb-4 bg-white p-2 border border-gray-300 text-gray-500 rounded-lg shadow-sm" />
-      <input type="range" ref={volumeRef} min="0" max="1" step="0.01" defaultValue="1" onChange={handleVolumeChange} className="w-64 mb-4 bg-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      
+      <div className="mb-4 w-full max-w-md">
+        <label className="block text-white text-sm font-medium mb-2">Upload MP3 File</label>
+        <input 
+          type="file" 
+          ref={audioRef} 
+          accept="audio/*" 
+          className="w-full bg-white p-2 border border-gray-300 text-gray-500 rounded-lg shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white" 
+        />
+      </div>
+      
+      <div className="mb-4 w-full max-w-md">
+        <label className="block text-white text-sm font-medium mb-2">Volume</label>
+        <input 
+          type="range" 
+          ref={volumeRef} 
+          min="0" 
+          max="1" 
+          step="0.01" 
+          defaultValue="1" 
+          onChange={handleVolumeChange} 
+          className="w-full bg-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        />
+      </div>
+      
       <div ref={mountRef} className="w-full h-full" />
-      <audio ref={audioElementRef} style={{ display: 'none' }} />
+      <audio 
+        ref={audioElementRef} 
+        style={{ display: 'none' }} 
+        preload="auto" 
+        crossOrigin="anonymous" 
+      />
     </div>
   );        
 }
