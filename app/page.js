@@ -28,12 +28,31 @@ export default function Home() {
   const mediaElementSource = useRef(null);
   const animationId = useRef(null);
 
+  // Add these new refs for touch controls
+  const meshRef = useRef(null);
+  const touchActive = useRef(false);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const initialRotation = useRef({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  const [showTouchHint, setShowTouchHint] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Detect Firefox
       const isFirefoxBrowser = navigator.userAgent.indexOf('Firefox') !== -1;
       setIsFirefox(isFirefoxBrowser);
       setShowFirefoxNotice(isFirefoxBrowser);
+      
+      // Detect mobile
+      const isMobileDevice = window.innerWidth < 768 || 
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+      
+      // Show touch hint on mobile
+      if (isMobileDevice) {
+        setShowTouchHint(true);
+        setTimeout(() => setShowTouchHint(false), 3000);
+      }
       
       listener.current = new THREE.AudioListener();
       setScreenWidth(window.innerWidth);
@@ -215,6 +234,7 @@ export default function Home() {
       const mesh = new THREE.Mesh(geo, mat);
       scene.add(mesh);
       mesh.material.wireframe = true;
+      meshRef.current = mesh; // Store mesh reference for touch handling
 
       camera.add(listener.current);
 
@@ -260,10 +280,57 @@ export default function Home() {
         mouseY = (e.clientY - windowHalfY) / 100;
       });
 
+      // Touch controls for mobile
+      const handleTouchStart = (e) => {
+        e.preventDefault();
+        touchActive.current = true;
+        
+        if (e.touches && e.touches[0]) {
+          touchStartPos.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY
+          };
+          
+          initialRotation.current = {
+            x: mesh.rotation.x,
+            y: mesh.rotation.y
+          };
+        }
+      };
+      
+      const handleTouchMove = (e) => {
+        if (!touchActive.current) return;
+        e.preventDefault();
+        
+        if (e.touches && e.touches[0]) {
+          const touchX = e.touches[0].clientX;
+          const touchY = e.touches[0].clientY;
+          
+          const deltaX = (touchX - touchStartPos.current.x) * 0.01;
+          const deltaY = (touchY - touchStartPos.current.y) * 0.01;
+          
+          mesh.rotation.y = initialRotation.current.y + deltaX;
+          mesh.rotation.x = initialRotation.current.x + deltaY;
+        }
+      };
+      
+      const handleTouchEnd = () => {
+        touchActive.current = false;
+      };
+      
+      // Add touch events to renderer's DOM element
+      renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+      renderer.domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+      renderer.domElement.addEventListener('touchend', handleTouchEnd);
+      renderer.domElement.addEventListener('touchcancel', handleTouchEnd);
+
       const clock = new THREE.Clock();
       function animate() {
-        camera.position.x += (mouseX - camera.position.x) * 0.05;
-        camera.position.y += (-mouseY - camera.position.y) * 0.5;
+        // Add conditional to prevent camera movement during touch
+        if (!touchActive.current) {
+          camera.position.x += (mouseX - camera.position.x) * 0.05;
+          camera.position.y += (-mouseY - camera.position.y) * 0.5;
+        }
         camera.lookAt(scene.position);
         uniforms.u_time.value = clock.getElapsedTime();
         uniforms.u_frequency.value = analyser.getAverageFrequency();
@@ -526,6 +593,14 @@ export default function Home() {
         if (audioContext.current) {
           audioContext.current.close().catch(err => console.log('Error closing AudioContext:', err));
         }
+
+        // Add cleanup for touch event listeners
+        if (renderer.domElement) {
+          renderer.domElement.removeEventListener('touchstart', handleTouchStart);
+          renderer.domElement.removeEventListener('touchmove', handleTouchMove);
+          renderer.domElement.removeEventListener('touchend', handleTouchEnd);
+          renderer.domElement.removeEventListener('touchcancel', handleTouchEnd);
+        }
       };
     }
   }, []);
@@ -623,6 +698,13 @@ export default function Home() {
             For the best experience, try using Chrome or Edge, or click the Visualize button after loading a URL.
           </span>
           <button onClick={dismissFirefoxNotice}>✕</button>
+        </div>
+      )}
+      
+      {/* Add touch hint for mobile */}
+      {showTouchHint && (
+        <div className="touch-hint">
+          Touch and drag to rotate the sphere
         </div>
       )}
       
