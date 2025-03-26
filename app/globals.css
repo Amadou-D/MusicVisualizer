@@ -126,6 +126,7 @@ canvas {
   width: 100vw !important;
   height: 100vh !important;
   pointer-events: auto; /* Re-enable interactions for canvas */
+  image-rendering: optimizeSpeed; /* Optimize rendering performance on low-end devices */
 }
 
 /* Make sure visualizer container takes full screen */
@@ -278,7 +279,7 @@ canvas {
   
   /* Adjust sphere positioning on very small screens */
   .sphere-container {
-    transform: translate(-50%, -30%); /* Adjusted to work better with scrolling */
+    transform: translate(-50%, -40%); /* Moved higher from -30% to -40% */
   }
   
   /* Allow content to push page height */
@@ -290,7 +291,7 @@ canvas {
 /* Fix for very small screens - prevent clipping */
 @media (max-width: 380px) {
   .sphere-container {
-    transform: translate(-50%, -35%) scale(0.85); /* Scale down slightly on very small screens */
+    transform: translate(-50%, -45%) scale(0.85); /* Moved higher from -35% to -45% */
   }
 
   /* Ensure controls don't push too far down */
@@ -395,7 +396,7 @@ canvas {
   
   /* Position sphere to avoid overlapping with controls */
   .sphere-container {
-    transform: translate(-50%, -40%); /* Moved up to avoid controls */
+    transform: translate(-50%, -50%); /* Moved higher from -40% to -50% */
   }
 }
 
@@ -443,4 +444,232 @@ input[type="file"] {
 }
 .debug .volume-container {
   outline: 2px solid purple;
+}
+
+/* Add friendly mobile title styling */
+.mobile-friendly-title {
+  font-size: 1.25rem !important; /* Much smaller on mobile */
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Limit to 2 lines */
+  -webkit-box-orient: vertical;
+  max-width: 100%;
+  max-height: 3em; /* Approximately 2 lines */
+  word-break: break-word;
+  margin: 0.5rem 0;
+}
+
+@media (min-width: 640px) {
+  .mobile-friendly-title {
+    font-size: 1.875rem !important; /* Restore larger size on desktop */
+    -webkit-line-clamp: 1; /* Single line on desktop */
+  }
+}
+
+/* Enhanced mobile controls */
+.mobile-controls {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Volume control styling */
+.volume-control {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+}
+
+/* Custom range input styling for better mobile appearance */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+/* Mobile layout improvements */
+@media (max-width: 640px) {
+  /* Fix file input on mobile */
+  input[type="file"] {
+    font-size: 0.875rem;
+    padding: 0.5rem;
+  }
+  
+  /* Better form layout on small screens */
+  form.flex.flex-col button {
+    margin-top: -1px; /* Connect to input for cleaner look */
+  }
+  
+  /* Fix any overflow issues */
+  .flex.flex-col.items-center {
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    box-sizing: border-box;
+  }
+  
+  /* Improve loading spinner position on mobile */
+  .loading-spinner {
+    width: 30px;
+    height: 30px;
+  }
+  
+  /* More compact error message on mobile */
+  .error-message {
+    font-size: 0.875rem;
+    padding: 8px 10px;
+    margin: 0.5rem 0;
+  }
+}
+
+/* Optimize for very small screens */
+@media (max-width: 380px) {
+  .sphere-container {
+    transform: translate(-50%, -40%) scale(0.75); /* Moved higher from -30% to -40% */
+  }
+  
+  .flex.flex-col.items-center {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  input[type="file"], button, input[type="text"] {
+    font-size: 0.875rem; /* Smaller text on tiny screens */
+  }
+}
+
+/* Special low-performance device optimizations */
+@media (max-width: 640px) {
+  #visualizer-container {
+    will-change: transform; /* Optimize rendering performance */
+    backface-visibility: hidden;
+    perspective: 1000;
+    transform-style: preserve-3d;
+  }
+}
+
+/* Title container to prevent layout shifts */
+.title-container {
+  min-height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+/* Fix mobile title styling */
+.mobile-friendly-title {
+  font-size: 1rem !important;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Limit to 2 lines */
+  -webkit-box-orient: vertical;
+  width: 100%;
+  max-width: 100%;
+  max-height: 3rem;
+  word-break: break-word;
+  padding: 0 0.5rem;
+  margin: 0;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8); /* Add text shadow to improve readability */
+  background-color: rgba(0,0,0,0.3); /* Semi-transparent background */
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+/* Loading spinner position fixed */
+.loading-spinner {
+  position: absolute;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .mobile-friendly-title {
+    font-size: 1.25rem !important;
+    max-height: 3.5rem;
+    padding: 8px 12px;
+  }
+  
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .title-container {
+    min-height: 4rem;
+  }
+}
+
+/* Form spacing adjustments */
+.mobile-controls {
+  margin-top: 0 !important;
+}
+
+/* Preserve layout stability */
+.flex.flex-col.items-center.p-4 {
+  gap: 0.25rem !important;
+}
+
+/* Optimize for very small screens */
+@media (max-width: 380px) {
+  .mobile-friendly-title {
+    font-size: 0.875rem !important;
+    padding: 4px 8px;
+    -webkit-line-clamp: 2;
+    max-height: 2.5rem;
+  }
+  
+  .title-container {
+    min-height: 3rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Added to help visualizer position - moves the canvas higher */
+#visualizer-container canvas {
+  position: relative;
+  top: -40px; /* Move canvas up by 40px to adjust for the title container */
+}
+
+@media (max-width: 480px) {
+  #visualizer-container canvas {
+    top: -30px; /* Slightly less adjustment for smaller screens */
+  }
 }

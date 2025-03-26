@@ -265,10 +265,15 @@ export default function Home() {
         fragmentShader,
       });
 
-      // Create sphere with fixed, appropriate size for all devices
-      // Make it smaller on mobile for better viewing
-      const sphereSize = isMobileDevice ? 2.8 : 4.0; // Reduced from 3.5 to 2.8 for mobile
-      const sphereDetail = isMobileDevice ? 20 : 30;
+      // Create sphere with optimized settings for different screen sizes
+      const sphereSize = 
+        window.innerWidth < 480 ? 2.6 :  // Even smaller on very small screens
+        isMobileDevice ? 2.8 : 4.0;      // Standard sizes for mobile/desktop
+      
+      // Significantly reduce detail on mobile for better performance
+      const sphereDetail = 
+        window.innerWidth < 480 ? 15 :   // Much lower detail on very small screens
+        isMobileDevice ? 18 : 30;        // Reduced detail on mobile
       
       const geo = new THREE.IcosahedronGeometry(sphereSize, sphereDetail);
       const mesh = new THREE.Mesh(geo, mat);
@@ -372,40 +377,52 @@ export default function Home() {
       // Frame rate controlled animation loop for better mobile performance
       const clock = new THREE.Clock();
       let lastFrame = 0;
-      const frameLimit = isMobileDevice ? 30 : 60; // Limit FPS on mobile
+      // Further reduce frameLimit for lower-end mobile devices
+      const frameLimit = isMobileDevice ? 
+        (window.innerWidth < 480 ? 24 : 30) : 60; // Even lower FPS on small screens
       const frameDuration = 1000 / frameLimit;
       
       function animate(now) {
         animationId.current = requestAnimationFrame(animate);
         
-        // Limit frame rate on mobile
+        // More adaptive frame limiting based on device performance
         if (isMobileDevice) {
           if (now - lastFrame < frameDuration) {
             return;
           }
           lastFrame = now;
-        }
-        
-        // Add conditional to prevent camera movement during touch
-        if (!touchActive.current) {
-          camera.position.x += (mouseX - camera.position.x) * 0.05;
-          camera.position.y += (-mouseY - camera.position.y) * 0.5;
+          
+          // Simplified calculations on mobile for better performance
+          if (meshRef.current && !touchActive.current) {
+            // Slower rotation on mobile to reduce CPU usage
+            meshRef.current.rotation.y += 0.0005;
+          }
+        } else {
+          // Desktop animation with full detail
+          if (!touchActive.current) {
+            camera.position.x += (mouseX - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY - camera.position.y) * 0.5;
+            
+            if (meshRef.current) {
+              meshRef.current.rotation.y += 0.001;
+            }
+          }
         }
         
         camera.lookAt(scene.position);
-        
-        // Always apply gentle rotation when not touching
-        if (!touchActive.current && meshRef.current) {
-          meshRef.current.rotation.y += 0.001;
-        }
-        
         uniforms.u_time.value = clock.getElapsedTime();
         
-        // Make sure frequency is always being updated
+        // More efficient frequency update for mobile
         if (analyser) {
-          // Apply a multiplier to make the effect more visible on mobile
           const frequencyValue = analyser.getAverageFrequency();
-          uniforms.u_frequency.value = isMobileDevice ? frequencyValue * 1.2 : frequencyValue;
+          // Scale down effect on very small screens to improve performance
+          if (window.innerWidth < 480) {
+            uniforms.u_frequency.value = frequencyValue * 0.9;
+          } else if (isMobileDevice) {
+            uniforms.u_frequency.value = frequencyValue * 1.1;
+          } else {
+            uniforms.u_frequency.value = frequencyValue;
+          }
         }
         
         bloomComposer.render();
@@ -760,7 +777,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center p-4 relative min-h-screen pb-16"> {/* Added min-height and padding-bottom */}
+    <div className="flex flex-col items-center p-4 relative min-h-screen pb-16">
       {showFirefoxNotice && (
         <div className="firefox-notice">
           <span>
@@ -781,8 +798,9 @@ export default function Home() {
       
       <div id="visualizer-container" className="absolute top-0 left-0 w-full h-full -z-10"></div>
       
-      <div className="flex items-center mb-6 gap-4">
-        {songTitle && <div className="song-title text-3xl">{songTitle}</div>}
+      {/* Title container with fixed height and better handling */}
+      <div className="title-container w-full max-w-md flex-shrink-0 mb-4">
+        {songTitle && <div className="mobile-friendly-title">{songTitle}</div>}
         {loading && <div className="loading-spinner"></div>}
       </div>
       
@@ -792,19 +810,40 @@ export default function Home() {
         </div>
       )}
       
-      <form className="mb-4 flex items-center space-x-2 text-gray-700">
+      <form className="mb-3 flex flex-col sm:flex-row w-full max-w-md items-center text-gray-700 mobile-controls">
         <input
           type="text"
           ref={urlInputRef}
           placeholder="Enter YouTube URL"
-          className="p-2 border border-gray-300 rounded-l bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="p-2 border border-gray-300 rounded-t sm:rounded-l sm:rounded-r-none bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
         />
-        <button type="button" onClick={handlePlay} className="p-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-md">
+        <button 
+          type="button" 
+          onClick={handlePlay} 
+          className="p-2 bg-blue-700 hover:bg-blue-600 text-white rounded-b sm:rounded-r sm:rounded-l-none shadow-md w-full sm:w-auto"
+        >
           Visualize
         </button>
       </form>
-      <input type="file" ref={audioRef} accept="audio/*" className="mb-4 bg-white p-2 border border-gray-300 text-gray-500 rounded-lg shadow-sm" />
-      <input type="range" ref={volumeRef} min="0" max="1" step="0.01" defaultValue="1" onChange={handleVolumeChange} className="w-64 mb-4 bg-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <input 
+        type="file" 
+        ref={audioRef} 
+        accept="audio/*" 
+        className="mb-4 bg-white p-2 border border-gray-300 text-gray-500 rounded-lg shadow-sm w-full max-w-md" 
+      />
+      <div className="volume-control flex items-center w-full max-w-md mb-6 px-2">
+        <span className="mr-2 text-sm">Volume:</span>
+        <input 
+          type="range" 
+          ref={volumeRef} 
+          min="0" 
+          max="1" 
+          step="0.01" 
+          defaultValue="1" 
+          onChange={handleVolumeChange} 
+          className="flex-grow h-2 bg-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        />
+      </div>
       <div ref={mountRef} className="w-full h-full" />
       <audio ref={audioElementRef} style={{ display: 'none' }} />
     </div>
