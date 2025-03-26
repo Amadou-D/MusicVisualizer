@@ -59,23 +59,61 @@ export default function Home() {
       setScreenHeight(window.innerHeight);
 
       const handleResize = () => {
-        setScreenWidth(window.innerWidth);
-        setScreenHeight(window.innerHeight);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        
+        // Update responsive state
+        const nowMobile = width < 768;
+        setIsMobile(nowMobile);
+        setScreenWidth(width);
+        setScreenHeight(height);
+        
+        // Update camera properties
+        camera.aspect = width / height;
+        if (nowMobile) {
+          camera.fov = 65; // Slightly reduce FOV for better mobile view
+          camera.position.z = 18; // Fixed distance that works well on most devices
+        } else {
+          camera.fov = 45;
+          camera.position.z = 14;
+        }
+        camera.updateProjectionMatrix();
+        
+        // Update renderer size
+        renderer.setSize(width, height);
+        bloomComposer.setSize(width, height);
       };
 
       window.addEventListener('resize', handleResize);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      // Set up renderer with appropriate settings for device
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: !isMobileDevice, 
+        powerPreference: 'high-performance',
+        alpha: true
+      });
+      
+      // Reduce pixel ratio on mobile for performance
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1 : 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       mountRef.current.appendChild(renderer.domElement);
+      renderer.domElement.style.touchAction = 'none'; // Ensure touch action is none
 
       const scene = new THREE.Scene();
+      
+      // Keep a fixed FOV and adjust camera position instead
+      const fov = isMobileDevice ? 65 : 45;
       const camera = new THREE.PerspectiveCamera(
-        45,
+        fov,
         window.innerWidth / window.innerHeight,
         0.1,
         1000
       );
+
+      // Set fixed positions that work across devices
+      const cameraZ = isMobileDevice ? 18 : 14;
+      camera.position.set(0, -2, cameraZ);
+      camera.lookAt(0, 0, 0);
 
       const params = {
         red: 1.0,
@@ -103,9 +141,6 @@ export default function Home() {
 
       const outputPass = new OutputPass();
       bloomComposer.addPass(outputPass);
-
-      camera.position.set(0, -2, 14);
-      camera.lookAt(0, 0, 0);
 
       const uniforms = {
         u_time: { type: 'f', value: 0.0 },
@@ -230,7 +265,12 @@ export default function Home() {
         fragmentShader,
       });
 
-      const geo = new THREE.IcosahedronGeometry(4, 30);
+      // Create sphere with fixed, appropriate size for all devices
+      // Don't make it too small on mobile
+      const sphereSize = isMobileDevice ? 3.5 : 4.0;
+      const sphereDetail = isMobileDevice ? 20 : 30;
+      
+      const geo = new THREE.IcosahedronGeometry(sphereSize, sphereDetail);
       const mesh = new THREE.Mesh(geo, mat);
       scene.add(mesh);
       mesh.material.wireframe = true;
@@ -280,9 +320,10 @@ export default function Home() {
         mouseY = (e.clientY - windowHalfY) / 100;
       });
 
-      // Touch controls for mobile
+      // Enhanced touch controls with better sensitivity
       const handleTouchStart = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         touchActive.current = true;
         
         if (e.touches && e.touches[0]) {
@@ -301,45 +342,82 @@ export default function Home() {
       const handleTouchMove = (e) => {
         if (!touchActive.current) return;
         e.preventDefault();
+        e.stopPropagation();
         
         if (e.touches && e.touches[0]) {
           const touchX = e.touches[0].clientX;
           const touchY = e.touches[0].clientY;
           
-          const deltaX = (touchX - touchStartPos.current.x) * 0.01;
-          const deltaY = (touchY - touchStartPos.current.y) * 0.01;
+          // Increase sensitivity for better response
+          const sensitivity = 0.015;
+          const deltaX = (touchX - touchStartPos.current.x) * sensitivity;
+          const deltaY = (touchY - touchStartPos.current.y) * sensitivity;
           
           mesh.rotation.y = initialRotation.current.y + deltaX;
           mesh.rotation.x = initialRotation.current.x + deltaY;
         }
       };
       
-      const handleTouchEnd = () => {
+      const handleTouchEnd = (e) => {
         touchActive.current = false;
       };
       
-      // Add touch events to renderer's DOM element
-      renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
-      renderer.domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
-      renderer.domElement.addEventListener('touchend', handleTouchEnd);
-      renderer.domElement.addEventListener('touchcancel', handleTouchEnd);
+      // Directly apply touch handlers to the DOM element
+      const domElement = renderer.domElement;
+      domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+      domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+      domElement.addEventListener('touchend', handleTouchEnd);
+      domElement.addEventListener('touchcancel', handleTouchEnd);
 
+      // Frame rate controlled animation loop for better mobile performance
       const clock = new THREE.Clock();
-      function animate() {
+      let lastFrame = 0;
+      const frameLimit = isMobileDevice ? 30 : 60; // Limit FPS on mobile
+      const frameDuration = 1000 / frameLimit;
+      
+      function animate(now) {
+        animationId.current = requestAnimationFrame(animate);
+        
+        // Limit frame rate on mobile
+        if (isMobileDevice) {
+          if (now - lastFrame < frameDuration) {
+            return;
+          }
+          lastFrame = now;
+        }
+        
         // Add conditional to prevent camera movement during touch
         if (!touchActive.current) {
           camera.position.x += (mouseX - camera.position.x) * 0.05;
           camera.position.y += (-mouseY - camera.position.y) * 0.5;
         }
+        
         camera.lookAt(scene.position);
+        
+        // Always apply gentle rotation when not touching
+        if (!touchActive.current && meshRef.current) {
+          meshRef.current.rotation.y += 0.001;
+        }
+        
         uniforms.u_time.value = clock.getElapsedTime();
-        uniforms.u_frequency.value = analyser.getAverageFrequency();
+        
+        // Make sure frequency is always being updated
+        if (analyser) {
+          // Apply a multiplier to make the effect more visible on mobile
+          const frequencyValue = analyser.getAverageFrequency();
+          uniforms.u_frequency.value = isMobileDevice ? frequencyValue * 1.2 : frequencyValue;
+        }
+        
         bloomComposer.render();
-        animationId.current = requestAnimationFrame(animate);
       }
-      animate();
+      
+      animate(0);
 
-      window.addEventListener('resize', function () {
+      // Call resize immediately to set initial sizes
+      handleResize();
+      
+      // Remove old resize event listener to avoid duplicates
+      window.removeEventListener('resize', function () {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -543,13 +621,6 @@ export default function Home() {
               setLoading(false);
               setErrorMessage('There was an error setting up the audio. Please try a different URL.');
             }
-            
-            // Remove event listeners when they're no longer needed
-            return () => {
-              audioElementRef.current.removeEventListener('canplay', onCanPlay);
-              audioElementRef.current.removeEventListener('playing', onPlaying);
-              audioElementRef.current.removeEventListener('error', onError);
-            };
           } catch (contextError) {
             console.error('Audio context error:', contextError);
             setLoading(false);
@@ -595,11 +666,11 @@ export default function Home() {
         }
 
         // Add cleanup for touch event listeners
-        if (renderer.domElement) {
-          renderer.domElement.removeEventListener('touchstart', handleTouchStart);
-          renderer.domElement.removeEventListener('touchmove', handleTouchMove);
-          renderer.domElement.removeEventListener('touchend', handleTouchEnd);
-          renderer.domElement.removeEventListener('touchcancel', handleTouchEnd);
+        if (domElement) {
+          domElement.removeEventListener('touchstart', handleTouchStart);
+          domElement.removeEventListener('touchmove', handleTouchMove);
+          domElement.removeEventListener('touchend', handleTouchEnd);
+          domElement.removeEventListener('touchcancel', handleTouchEnd);
         }
       };
     }
