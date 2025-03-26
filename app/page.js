@@ -266,8 +266,8 @@ export default function Home() {
       });
 
       // Create sphere with fixed, appropriate size for all devices
-      // Don't make it too small on mobile
-      const sphereSize = isMobileDevice ? 3.5 : 4.0;
+      // Make it smaller on mobile for better viewing
+      const sphereSize = isMobileDevice ? 2.8 : 4.0; // Reduced from 3.5 to 2.8 for mobile
       const sphereDetail = isMobileDevice ? 20 : 30;
       
       const geo = new THREE.IcosahedronGeometry(sphereSize, sphereDetail);
@@ -760,7 +760,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center p-4 relative">
+    <div className="flex flex-col items-center p-4 relative min-h-screen pb-16"> {/* Added min-height and padding-bottom */}
       {showFirefoxNotice && (
         <div className="firefox-notice">
           <span>
