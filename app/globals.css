@@ -17,7 +17,7 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
   position: fixed;
   width: 100%;
   height: 100%;
@@ -51,13 +51,14 @@ body {
   color: #000;
   padding: 10px 20px;
   text-align: center;
-  z-index: 1000;
+  z-index: 1000; /* Very high z-index */
   font-size: 14px;
   line-height: 1.4;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  pointer-events: auto; /* Ensure it's clickable */
 }
 
 .firefox-notice strong {
@@ -101,7 +102,7 @@ body {
   color: white;
   padding: 8px 16px;
   border-radius: 8px;
-  z-index: 100;
+  z-index: 500; /* Higher than visualizer, lower than controls */
   pointer-events: none;
   animation: fadeInOut 3s forwards;
   max-width: 90%;
@@ -124,6 +125,7 @@ canvas {
   display: block;
   width: 100vw !important;
   height: 100vh !important;
+  pointer-events: auto; /* Re-enable interactions for canvas */
 }
 
 /* Make sure visualizer container takes full screen */
@@ -132,7 +134,308 @@ canvas {
   top: 0;
   left: 0;
   width: 100vw !important;
-  height: 100vh !important;
-  z-index: -1;
+  height: 100vh !important; /* Use the full viewport height */
+  z-index: -1; /* Changed from -10 to -1 to avoid extreme values */
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Prevent it from intercepting clicks */
+}
+
+/* New sphere container for perfect centering */
+.sphere-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* Original setting */
+  overflow: visible; /* Ensure the sphere isn't clipped */
+}
+
+/* Controls container for better layout */
+.controls-container {
+  position: relative;
+  z-index: 1000; /* Much higher z-index to ensure visibility */
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto 2rem auto; /* Added bottom margin to separate from sphere */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  background-color: rgba(var(--background-rgb), 0.7); /* Semi-transparent background */
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Add subtle shadow for better visibility */
+}
+
+/* Form styling - remove extra z-index and position settings */
+.url-form {
+  display: flex;
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 1rem;
+  position: relative; /* Enable proper stacking context */
+  z-index: 1001; /* Higher than container */
+}
+
+.url-input {
+  flex-grow: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-right: none;
+  border-top-left-radius: 0.375rem;
+  border-bottom-left-radius: 0.375rem;
+  background-color: white;
+  position: relative;
+  z-index: 1002;
+  pointer-events: auto;
+}
+
+.visualize-btn {
+  padding: 0.5rem 1rem;
+  background-color: #1d4ed8;
+  color: white;
+  border: none;
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  cursor: pointer;
+  position: relative;
+  z-index: 1002;
+  pointer-events: auto;
+}
+
+/* File input and volume slider */
+.file-input, .volume-slider {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  position: relative;
+  z-index: 1001; /* Ensure all interactive elements are clickable */
+  pointer-events: auto;
+  cursor: pointer;
+  background-color: white; /* Ensure background is visible */
+  border-radius: 0.375rem; /* Match URL input styling */
+}
+
+.volume-container {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem; /* Increased spacing below volume control */
+  position: relative;
+  z-index: 1001; /* Ensure all interactive elements are clickable */
+  pointer-events: auto;
+  background-color: rgba(255, 255, 255, 0.1); /* Subtle background */
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.volume-label {
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+
+.volume-slider {
+  flex-grow: 1;
+  z-index: 1002;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Ensure controls are high enough to not interfere with sphere on small screens */
+@media (max-width: 480px), (max-height: 600px) {
+  .flex.items-center.mb-6 {
+    margin-bottom: 2rem;
+  }
+  
+  .error-message {
+    max-width: 95%;
+    width: auto;
+    padding: 8px 10px;
+  }
+  
+  form.mb-4 {
+    margin-bottom: 0.5rem;
+  }
+  
+  input[type="file"], input[type="range"] {
+    margin-bottom: 0.5rem; 
+  }
+  
+  /* Push controls to top, away from sphere */
+  .controls-container {
+    padding-top: 0.5rem;
+    margin-bottom: 4rem; /* Even more space for very small screens */
+  }
+  
+  /* Adjust sphere positioning on very small screens */
+  .sphere-container {
+    transform: translate(-50%, -35%); /* Position even higher on small screens */
+  }
+}
+
+/* Fix for very small screens - prevent clipping */
+@media (max-width: 380px) {
+  .sphere-container {
+    transform: translate(-50%, -35%) scale(0.85); /* Scale down slightly on very small screens */
+  }
+
+  /* Ensure controls don't push too far down */
+  .controls-container {
+    margin-bottom: 5rem;
+  }
+}
+
+/* Move the controls higher up on mobile to make more room for sphere */
+@media (max-width: 480px), (max-height: 600px) {
+  .flex.flex-col.items-center.p-4.relative {
+    padding-top: 0.5rem !important;
+  }
+  
+  .flex.items-center.mb-6 {
+    margin-bottom: 1rem;
+  }
+  
+  .error-message {
+    max-width: 95%;
+    width: auto;
+    padding: 8px 10px;
+    margin-bottom: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  
+  form.mb-4 {
+    margin-bottom: 0.25rem;
+  }
+  
+  input[type="file"], input[type="range"] {
+    margin-bottom: 0.25rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  
+  /* Make controls more compact on small screens */
+  .p-2 {
+    padding: 0.35rem !important;
+  }
+  
+  /* Push everything up to make more room for sphere */
+  .p-4 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .controls-container {
+    padding: 0.5rem;
+    margin-bottom: 3rem; /* Increased bottom margin on mobile */
+  }
+  
+  .url-form {
+    flex-direction: column;
+    position: relative;
+    z-index: 1001;
+  }
+  
+  .url-input {
+    width: 100%;
+    border-right: 1px solid #d1d5db;
+    border-bottom: none;
+    border-radius: 0.375rem 0.375rem 0 0;
+    margin-bottom: 0;
+  }
+  
+  .visualize-btn {
+    width: 100%;
+    border-radius: 0 0 0.375rem 0.375rem;
+  }
+  
+  .volume-container {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 2rem; /* Increased spacing below volume control */
+  }
+  
+  .volume-label {
+    margin-bottom: 0.25rem;
+  }
+  
+  .file-input {
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    width: 100%;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  .song-title {
+    font-size: 1.25rem !important;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  
+  /* Position sphere to avoid overlapping with controls */
+  .sphere-container {
+    transform: translate(-50%, -40%); /* Moved up to avoid controls */
+  }
+}
+
+/* Ensure DAT.GUI is positioned better on mobile */
+.dg.ac {
+  top: 5px !important;
+  right: 5px !important;
+  max-height: 30vh !important;
+}
+
+/* Updated container styling to ensure proper vertical separation */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  z-index: 5; /* Increased from 1 to ensure proper stacking */
+}
+
+/* Ensure all children of page-container receive pointer events */
+.page-container > * {
+  pointer-events: auto;
+}
+
+/* Fix for bug in some browsers that hide file inputs */
+input[type="file"] {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Add debug outlines to help identify positioning issues - can be removed later */
+.debug .controls-container {
+  outline: 2px solid red;
+}
+.debug .url-form {
+  outline: 2px solid blue;
+}
+.debug .file-input {
+  outline: 2px solid green;
+}
+.debug .volume-container {
+  outline: 2px solid purple;
 }
